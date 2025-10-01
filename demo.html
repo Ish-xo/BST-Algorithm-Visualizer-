@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Binary Search Tree Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .highlighted-node {
+            fill: #3b82f6;
+            stroke: #1d4ed8;
+        }
+    </style>
+</head>
+
+<body class="p-4 sm:p-8">
+    <div class="container mx-auto p-4 sm:p-8 bg-white rounded-3xl shadow-2xl max-w-5xl w-full">
+        <!-- Title -->
+        <h1 class="text-3xl sm:text-4xl font-extrabold text-center text-gray-800 mb-6">Binary Search Tree Visualizer</h1>
+
+        <!-- Controls and Description -->
+        <div class="flex flex-col md:flex-row gap-6 mb-6">
+            <div class="flex-1 flex flex-col gap-4">
+                <div class="flex flex-col">
+                    <label for="nodeInput" class="text-sm font-medium text-gray-600 mb-1">Enter numbers (comma-separated):</label>
+                    <input type="text" id="nodeInput" placeholder="e.g., 50, 25, 75, 10, 30"
+                        class="p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors">
+                </div>
+                <div class="flex flex-col">
+                    <label for="delayInput" class="text-sm font-medium text-gray-600 mb-1">Animation Delay (ms):</label>
+                    <input type="number" id="delayInput" value="1000" min="100"
+                        class="p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors">
+                </div>
+                <button id="createBtn"
+                    class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl shadow-lg transform transition-transform duration-200 ease-in-out hover:scale-105">
+                    Create BST
+                </button>
+            </div>
+            <div class="flex-1">
+                <div id="description"
+                    class="h-full min-h-[100px] p-4 bg-gray-100 rounded-xl border border-gray-200 overflow-y-auto text-gray-700 leading-relaxed text-sm transition-opacity duration-500 ease-in-out">
+                    Ready to visualize. Enter numbers and click "Create BST" to begin.
+                </div>
+            </div>
+        </div>
+        
+        <!-- Search and Delete Controls -->
+        <div class="flex flex-col sm:flex-row justify-center gap-4 mb-6">
+            <div class="flex flex-col flex-1">
+                <label for="searchDeleteInput" class="text-sm font-medium text-gray-600 mb-1">Search or Delete Node:</label>
+                <input type="number" id="searchDeleteInput" placeholder="Enter node value"
+                    class="p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors">
+            </div>
+            <div class="flex-1 flex gap-4 mt-auto">
+                <button id="searchBtn"
+                    class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-xl shadow-lg transform transition-transform duration-200 ease-in-out hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed">
+                    Search
+                </button>
+                <button id="deleteBtn"
+                    class="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-semibold py-3 rounded-xl shadow-lg transform transition-transform duration-200 ease-in-out hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed">
+                    Delete
+                </button>
+            </div>
+        </div>
+
+        <!-- Traversal and Reset Buttons -->
+        <div class="flex flex-wrap justify-center gap-4 mb-6">
+            <button id="inOrderBtn"
+                class="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-xl shadow-lg transform transition-transform duration-200 ease-in-out hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed">
+                In-order
+            </button>
+            <button id="preOrderBtn"
+                class="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-6 rounded-xl shadow-lg transform transition-transform duration-200 ease-in-out hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed">
+                Pre-order
+            </button>
+            <button id="postOrderBtn"
+                class="bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-6 rounded-xl shadow-lg transform transition-transform duration-200 ease-in-out hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed">
+                Post-order
+            </button>
+            <button id="resetBtn"
+                class="bg-gray-400 hover:bg-gray-500 text-white font-semibold py-3 px-6 rounded-xl shadow-lg transform transition-transform duration-200 ease-in-out hover:scale-105">
+                Reset
+            </button>
+        </div>
+
+        <div id="messageBox"
+            class="p-4 bg-yellow-100 text-yellow-800 rounded-xl text-center font-medium hidden">
+            <!-- This is where validation messages will appear -->
+        </div>
+
+        <!-- Canvas for Visualization -->
+        <div class="flex justify-center items-center rounded-xl bg-gray-50 border border-gray-200">
+            <canvas id="bstCanvas" class="w-full" style="aspect-ratio: 16 / 9;"></canvas>
+        </div>
+
+    </div>
+
+    <script>
+        // --- Tree Data Structures ---
+        class Node {
+            constructor(data) {
+                this.data = data;
+                this.left = null;
+                this.right = null;
+                this.x = 0;
+                this.y = 0;
+            }
+        }
+
+        class BST {
+            constructor() {
+                this.root = null;
+            }
+
+            async animatedInsert(numbers, canvas, ctx, descriptionDiv, delay) {
+                this.root = null;
+                descriptionDiv.innerHTML = 'Starting the tree creation...';
+                
+                for (const number of numbers) {
+                    await this._insertAnimated(number, this.root, canvas, ctx, descriptionDiv, delay);
+                    this.draw(ctx, canvas.width, canvas.height);
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                }
+                descriptionDiv.innerHTML += '<br><br>The Binary Search Tree has been successfully created!';
+            }
+
+            async _insertAnimated(data, currentNode, canvas, ctx, descriptionDiv, delay) {
+                const nodeRadius = 20;
+                let currentX = canvas.width / 2;
+                let currentY = 50;
+
+                const findPath = (node, path = [], x, y) => {
+                    if (!node) return { path, x, y };
+                    path.push(node);
+                    if (data < node.data) return findPath(node.left, path, x - 100 / Math.pow(2, path.length), y + 60);
+                    else return findPath(node.right, path, x + 100 / Math.pow(2, path.length), y + 60);
+                };
+
+                const { path, x: finalX, y: finalY } = findPath(this.root, [], currentX, currentY);
+
+                descriptionDiv.innerHTML = `Inserting ${data}.`;
+                await new Promise(resolve => setTimeout(resolve, delay / 2));
+
+                for (let i = 0; i < path.length; i++) {
+                    const node = path[i];
+                    descriptionDiv.innerHTML += `<br>Comparing ${data} with ${node.data}. It is ${data < node.data ? 'smaller' : 'larger'}. We go to the ${data < node.data ? 'left' : 'right'} child.`;
+                    await new Promise(resolve => setTimeout(resolve, delay / 2));
+                }
+
+                const newNode = new Node(data);
+                if (path.length === 0) this.root = newNode;
+                else {
+                    const lastNode = path[path.length - 1];
+                    if (data < lastNode.data) lastNode.left = newNode;
+                    else lastNode.right = newNode;
+                }
+                newNode.x = finalX;
+                newNode.y = finalY;
+
+                descriptionDiv.innerHTML += `<br>Node ${data} is placed as the new ${path.length === 0 ? 'root' : data < path[path.length - 1].data ? 'left' : 'right'} child of ${path.length === 0 ? 'the tree' : path[path.length - 1].data}.`;
+            }
+
+            async preOrderTraversal(ctx, canvas, descriptionDiv, delay) {
+                if (!this.root) return;
+                const result = [];
+                descriptionDiv.innerHTML = 'Starting Pre-order Traversal...';
+                await this._traverseAnimated(this.root, ctx, canvas, descriptionDiv, delay, 'preOrder', result);
+                descriptionDiv.innerHTML += `<br><br>Traversal complete. Result: ${result.join(', ')}`;
+            }
+
+            async inOrderTraversal(ctx, canvas, descriptionDiv, delay) {
+                if (!this.root) return;
+                const result = [];
+                descriptionDiv.innerHTML = 'Starting In-order Traversal...';
+                await this._traverseAnimated(this.root, ctx, canvas, descriptionDiv, delay, 'inOrder', result);
+                descriptionDiv.innerHTML += `<br><br>Traversal complete. Result: ${result.join(', ')}`;
+            }
+
+            async postOrderTraversal(ctx, canvas, descriptionDiv, delay) {
+                if (!this.root) return;
+                const result = [];
+                descriptionDiv.innerHTML = 'Starting Post-order Traversal...';
+                await this._traverseAnimated(this.root, ctx, canvas, descriptionDiv, delay, 'postOrder', result);
+                descriptionDiv.innerHTML += `<br><br>Traversal complete. Result: ${result.join(', ')}`;
+            }
+
+            async _traverseAnimated(node, ctx, canvas, descriptionDiv, delay, type, result) {
+                if (!node) return;
+                const visitNode = async (n) => {
+                    this.draw(ctx, canvas.width, canvas.height, n);
+                    descriptionDiv.innerHTML += `<br>Visiting node ${n.data}...`;
+                    result.push(n.data);
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                };
+                if (type === 'preOrder') await visitNode(node);
+                await this._traverseAnimated(node.left, ctx, canvas, descriptionDiv, delay, type, result);
+                if (type === 'inOrder') await visitNode(node);
+                await this._traverseAnimated(node.right, ctx, canvas, descriptionDiv, delay, type, result);
+                if (type === 'postOrder') await visitNode(node);
+            }
+
+            async animatedSearch(data, canvas, ctx, descriptionDiv, delay) {
+                let currentNode = this.root;
+                descriptionDiv.innerHTML = `Starting search for ${data}...`;
+                
+                while (currentNode) {
+                    this.draw(ctx, canvas.width, canvas.height, currentNode);
+                    await new Promise(resolve => setTimeout(resolve, delay));
+
+                    if (data === currentNode.data) {
+                        descriptionDiv.innerHTML += `<br>Found ${data}!`;
+                        return true;
+                    } else if (data < currentNode.data) {
+                        descriptionDiv.innerHTML += `<br>${data} is less than ${currentNode.data}, going left.`;
+                        currentNode = currentNode.left;
+                    } else {
+                        descriptionDiv.innerHTML += `<br>${data} is greater than ${currentNode.data}, going right.`;
+                        currentNode = currentNode.right;
+                    }
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                }
+
+                descriptionDiv.innerHTML += `<br>Node ${data} not found in the tree.`;
+                this.draw(ctx, canvas.width, canvas.height);
+                return false;
+            }
+
+            async animatedDelete(data, canvas, ctx, descriptionDiv, delay) {
+                descriptionDiv.innerHTML = `Starting deletion of ${data}...`;
+                let parent = null;
+                let currentNode = this.root;
+                let found = false;
+
+                while (currentNode) {
+                    this.draw(ctx, canvas.width, canvas.height, currentNode);
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    if (data === currentNode.data) { found = true; break; }
+                    parent = currentNode;
+                    currentNode = data < currentNode.data ? currentNode.left : currentNode.right;
+                }
+
+                if (!found) {
+                    descriptionDiv.innerHTML += `<br>Node ${data} not found. Deletion failed.`;
+                    this.draw(ctx, canvas.width, canvas.height);
+                    return false;
+                }
+
+                descriptionDiv.innerHTML += `<br>Found node ${data}. Preparing to delete.`;
+                await new Promise(resolve => setTimeout(resolve, delay));
+
+                if (currentNode.left === null && currentNode.right === null) {
+                    if (!parent) this.root = null;
+                    else if (parent.left === currentNode) parent.left = null;
+                    else parent.right = null;
+                    descriptionDiv.innerHTML += `<br>Node ${data} is a leaf node. It has been removed.`;
+                } else if (currentNode.left === null) {
+                    if (!parent) this.root = currentNode.right;
+                    else if (parent.left === currentNode) parent.left = currentNode.right;
+                    else parent.right = currentNode.right;
+                    descriptionDiv.innerHTML += `<br>Node ${data} has one child. The child takes its place.`;
+                } else if (currentNode.right === null) {
+                    if (!parent) this.root = currentNode.left;
+                    else if (parent.left === currentNode) parent.left = currentNode.left;
+                    else parent.right = currentNode.left;
+                    descriptionDiv.innerHTML += `<br>Node ${data} has one child. The child takes its place.`;
+                } else {
+                    descriptionDiv.innerHTML += `<br>Node ${data} has two children. Finding its in-order successor...`;
+                    let successorParent = currentNode;
+                    let successor = currentNode.right;
+                    while (successor.left) { successorParent = successor; successor = successor.left; }
+                    descriptionDiv.innerHTML += `<br>The in-order successor is ${successor.data}.`;
+                    currentNode.data = successor.data;
+                    if (successorParent.left === successor) successorParent.left = successor.right;
+                    else successorParent.right = successor.right;
+                    descriptionDiv.innerHTML += `<br>The node has been replaced with its successor and removed.`;
+                }
+
+                this.draw(ctx, canvas.width, canvas.height);
+                await new Promise(resolve => setTimeout(resolve, delay));
+                descriptionDiv.innerHTML += `<br><br>Deletion complete. Tree has been updated.`;
+                return true;
+            }
+
+            draw(ctx, canvasWidth, canvasHeight, highlightNode = null) {
+                ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+                this._drawNode(this.root, ctx, canvasWidth / 2, 50, canvasWidth / 4, highlightNode);
+            }
+
+            _drawNode(node, ctx, x, y, horizontalShift, highlightNode) {
+                if (!node) return;
+
+                node.x = x;
+                node.y = y;
+
+                if (node.left) {
+                    ctx.beginPath();
+                    ctx.moveTo(x, y + 20);
+                    ctx.lineTo(x - horizontalShift, y + 40);
+                    ctx.strokeStyle = '#cbd5e1';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
+                if (node.right) {
+                    ctx.beginPath();
+                    ctx.moveTo(x, y + 20);
+                    ctx.lineTo(x + horizontalShift, y + 40);
+                    ctx.strokeStyle = '#cbd5e1';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
+
+                ctx.beginPath();
+                ctx.arc(x, y, 20, 0, Math.PI * 2);
+                ctx.fillStyle = node === highlightNode ? '#3b82f6' : '#e2e8f0';
+                ctx.fill();
+                ctx.strokeStyle = node === highlightNode ? '#1d4ed8' : '#94a3b8';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                ctx.fillStyle = node === highlightNode ? '#ffffff' : '#1e293b';
+                ctx.font = '14px Inter';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(node.data, x, y);
+
+                this._drawNode(node.left, ctx, x - horizontalShift, y + 60, horizontalShift / 2, highlightNode);
+                this._drawNode(node.right, ctx, x + horizontalShift, y + 60, horizontalShift / 2, highlightNode);
+            }
+        }
+
+        // --- Main Application Logic ---
+        const bst = new BST();
+        const canvas = document.getElementById('bstCanvas');
+        const ctx = canvas.getContext('2d');
+        const createBtn = document.getElementById('createBtn');
+        const inOrderBtn = document.getElementById('inOrderBtn');
+        const preOrderBtn = document.getElementById('preOrderBtn');
+        const postOrderBtn = document.getElementById('postOrderBtn');
+        const searchBtn = document.getElementById('searchBtn');
+        const deleteBtn = document.getElementById('deleteBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const nodeInput = document.getElementById('nodeInput');
+        const searchDeleteInput = document.getElementById('searchDeleteInput');
+        const delayInput = document.getElementById('delayInput');
+        const descriptionDiv = document.getElementById('description');
+        const messageBox = document.getElementById('messageBox');
+
+        let isAnimating = false;
+
+        const disableButtons = (state) => {
+            createBtn.disabled = state;
+            inOrderBtn.disabled = state;
+            preOrderBtn.disabled = state;
+            postOrderBtn.disabled = state;
+            searchBtn.disabled = state;
+            deleteBtn.disabled = state;
+            isAnimating = state;
+        };
+
+        const showMessage = (message, isError = false) => {
+            messageBox.textContent = message;
+            messageBox.className = `p-4 rounded-xl text-center font-medium ${isError ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'}`;
+            messageBox.classList.remove('hidden');
+        };
+
+        const resizeCanvas = () => {
+            const container = canvas.parentElement;
+            canvas.width = container.clientWidth;
+            canvas.height = canvas.width * (9 / 16);
+            bst.draw(ctx, canvas.width, canvas.height);
+        };
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        createBtn.addEventListener('click', async () => {
+            if (isAnimating) return;
+            const numbers = nodeInput.value.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));
+            const delay = parseInt(delayInput.value);
+
+            if (numbers.length === 0) {
+                showMessage('Please enter valid numbers, like "50, 25, 75".');
+                return;
+            } else messageBox.classList.add('hidden');
+
+            disableButtons(true);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            descriptionDiv.innerHTML = 'Starting visualization...';
+            await bst.animatedInsert(numbers, canvas, ctx, descriptionDiv, delay);
+            disableButtons(false);
+        });
+
+        inOrderBtn.addEventListener('click', async () => {
+            if (isAnimating) return;
+            disableButtons(true);
+            await bst.inOrderTraversal(ctx, canvas, descriptionDiv, parseInt(delayInput.value));
+            disableButtons(false);
+        });
+
+        preOrderBtn.addEventListener('click', async () => {
+            if (isAnimating) return;
+            disableButtons(true);
+            await bst.preOrderTraversal(ctx, canvas, descriptionDiv, parseInt(delayInput.value));
+            disableButtons(false);
+        });
+
+        postOrderBtn.addEventListener('click', async () => {
+            if (isAnimating) return;
+            disableButtons(true);
+            await bst.postOrderTraversal(ctx, canvas, descriptionDiv, parseInt(delayInput.value));
+            disableButtons(false);
+        });
+
+        searchBtn.addEventListener('click', async () => {
+            if (isAnimating) return;
+            const value = parseInt(searchDeleteInput.value);
+            if (isNaN(value)) { showMessage('Enter valid number to search.', true); return; }
+            if (!bst.root) { showMessage('The tree is empty.', true); return; }
+            messageBox.classList.add('hidden');
+            disableButtons(true);
+            await bst.animatedSearch(value, canvas, ctx, descriptionDiv, parseInt(delayInput.value));
+            disableButtons(false);
+        });
+
+        deleteBtn.addEventListener('click', async () => {
+            if (isAnimating) return;
+            const value = parseInt(searchDeleteInput.value);
+            if (isNaN(value)) { showMessage('Enter valid number to delete.', true); return; }
+            if (!bst.root) { showMessage('The tree is empty.', true); return; }
+            messageBox.classList.add('hidden');
+            disableButtons(true);
+            await bst.animatedDelete(value, canvas, ctx, descriptionDiv, parseInt(delayInput.value));
+            bst.draw(ctx, canvas.width, canvas.height);
+            disableButtons(false);
+        });
+
+        resetBtn.addEventListener('click', () => {
+            bst.root = null;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            descriptionDiv.innerHTML = 'Visualization has been reset. Ready to begin.';
+            nodeInput.value = '';
+            searchDeleteInput.value = '';
+            inOrderBtn.disabled = true;
+            preOrderBtn.disabled = true;
+            postOrderBtn.disabled = true;
+            searchBtn.disabled = true;
+            deleteBtn.disabled = true;
+        });
+
+        inOrderBtn.disabled = true;
+        preOrderBtn.disabled = true;
+        postOrderBtn.disabled = true;
+        searchBtn.disabled = true;
+        deleteBtn.disabled = true;
+    </script>
+</body>
+
+</html>
